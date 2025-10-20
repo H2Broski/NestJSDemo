@@ -1,3 +1,12 @@
+/**
+ * - Replicates Users CRUD for Positions (GET, POST, PUT, DELETE).
+ * - All routes protected by JWT (JwtAuthGuard).
+ * - User id is taken from JWT (req.user) and not from the request body.
+ * - PUT returns { message: 'Position updated successfully', data: ... }.
+ * - DELETE returns { message: 'Position deleted successfully' }.
+ * - Positions table uses FK: positions.id -> users(id).
+ */
+
 import { 
     Controller, 
     Get, 
@@ -40,10 +49,12 @@ export class PositionsController {
     }
 
     @Post()
+    @HttpCode(HttpStatus.CREATED)
     async create(@Req() req: any, @Body() body: PositionCreateDto) {
         const userId = req.user?.id ?? req.user?.sub;
         if (!userId) throw new UnauthorizedException('Missing user id in token');
-        return this.positionsService.create(body, Number(userId));
+        const created = await this.positionsService.create(body, Number(userId));
+        return { message: 'Position created successfully', data: created };
     }
 
     @Put(':id')
