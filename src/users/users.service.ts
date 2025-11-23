@@ -48,4 +48,31 @@ export class UsersService {
     );
     return rows;
   }
+
+  async create(userData: any) {
+    return this.createUser(userData);
+  }
+
+  async getAll() {
+    return this.findAll();
+  }
+
+  async getOne(id: number) {
+    return this.findById(id);
+  }
+
+  async updateUser(id: number, userData: any) {
+    const pool = this.databaseService.getPool();
+    await pool.execute(
+      "UPDATE users SET username = ?, password = ? WHERE id = ?",
+      [userData.username, userData.password, id]
+    );
+    return { id, ...userData };
+  }
+
+  async deleteUser(id: number) {
+    const pool = this.databaseService.getPool();
+    await pool.execute("DELETE FROM users WHERE id = ?", [id]);
+    return { message: "User deleted" };
+  }
 }
