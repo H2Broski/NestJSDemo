@@ -8,14 +8,16 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:3000",
-      "https://because-tonight-would-be-the-night.vercel.app/", // Add your Vercel URL
-      "*", // Allow all for testing (remove in production)
+      "https://because-tonight-would-be-the-night.vercel.app/",
+      "https://*.vercel.app", // Allow all Vercel preview deployments
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   });
 
-  await app.listen(process.env.PORT || 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`Application is running on port ${port}`);
 }
 bootstrap();
