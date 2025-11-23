@@ -1,90 +1,110 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UsersService } from '../users/users.service';
-import * as bcrypt from 'bcryptjs';
-import { JwtService, JwtSignOptions, JwtVerifyOptions } from '@nestjs/jwt'; // <- add types
-import { ConfigService } from '@nestjs/config';
-
-type PublicUser = { id: number; username: string; role: string };
-type Tokens = { access_token: string; refresh_token: string };
-type TokenPayload = { sub: number; username: string; role: string };
+import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcrypt";
+import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-    private readonly config: ConfigService,
+    private usersService: UsersService,
+    private jwtService: JwtService
   ) {}
 
-  private getRefreshSecret(): string {
-    return this.config.get<string>('JWT_REFRESH_TOKEN_SECRET') ?? 'refresh_secret';
-  }
-  private getRefreshTtl(): number | `${number}${'ms'|'s'|'m'|'h'|'d'|'w'|'y'}` {
-    const raw = this.config.get<string>('REFRESH_TOKEN_EXPIRES_IN');
-    if (!raw) return '7d';
-    // pure number (seconds)
-    if (/^\d+$/.test(raw)) return Number(raw);
-    // duration string like 15m, 1h, 7d, etc.
-    if (/^\d+(ms|s|m|h|d|w|y)$/.test(raw)) {
-      return raw as `${number}${'ms'|'s'|'m'|'h'|'d'|'w'|'y'}`;
-    }
-    // fallback
-    return '7d';
+  async register(username: string, password: string) {
+    // Hash password with bcrypt
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user with hashed password
+    const user = await this.usersService.createUser({
+      username,
+      password: hashedPassword,
+    });
+
+    return {
+      id: user.id,
+      username: user.username,
+      message: "User registered successfully",
+    };
   }
 
-  async validateUser(username: string, pass: string): Promise<PublicUser | null> {
+  async login(username: string, password: string) {
+    // Find user by username
     const user = await this.usersService.findByUsername(username);
-    if (!user) return null;
-    const valid = await bcrypt.compare(pass, user.password);
-    if (!valid) return null;
-    return { id: user.id, username: user.username, role: user.role };
-  }
 
-  async login(user: PublicUser): Promise<Tokens> {
-    const payload: TokenPayload = { sub: user.id, username: user.username, role: user.role };
+    if (!user) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
 
-    const refreshSignOptions: JwtSignOptions = {
-      secret: this.getRefreshSecret(),
-      expiresIn: this.getRefreshTtl(),
+    // Compare password with hashed password using bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    // Generate JWT token
+    const payload = {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
     };
 
-    const access_token = this.jwtService.sign(payload);
-    const refresh_token = this.jwtService.sign(payload, refreshSignOptions);
+    const accessToken = this.jwtService.sign(payload);
 
-    await this.usersService.setRefreshToken(user.id, refresh_token);
-    return { access_token, refresh_token };
+    // Return token with correct field name
+    return { accessToken };
   }
 
-  async logout(userId: number): Promise<{ ok: true }> {
-    await this.usersService.setRefreshToken(userId, null);
-    return { ok: true };
-  }
-
-  async refreshTokens(refreshToken: string): Promise<Tokens> {
-    try {
-      const verifyOptions: JwtVerifyOptions = { secret: this.getRefreshSecret() };
-      const decoded = this.jwtService.verify<TokenPayload>(refreshToken, verifyOptions);
-
-      const user = await this.usersService.findById(decoded.sub);
-      if (!user) throw new UnauthorizedException('Invalid refresh token');
-
-      const stored = await this.usersService.getRefreshToken(user.id);
-      if (!stored || stored !== refreshToken) throw new UnauthorizedException('Invalid refresh token');
-
-      const payload: TokenPayload = { sub: user.id, username: user.username, role: user.role };
-      const signOptions: JwtSignOptions = {
-        secret: this.getRefreshSecret(),
-        expiresIn: this.getRefreshTtl() as unknown as any,
-      };
-
-      const access_token = this.jwtService.sign(payload);
-      const new_refresh_token = this.jwtService.sign(payload, signOptions);
-
-      await this.usersService.setRefreshToken(user.id, new_refresh_token);
-      return { access_token, refresh_token: new_refresh_token };
-    } catch {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+  async validateUser(userId: number) {
+    return this.usersService.findById(userId);
   }
 }
 
+import { Injectable } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mysql";
+import { Connection } from "mysql2/promise";
+
+@Injectable()
+export class UsersService {
+  constructor(@InjectConnection() private connection: Connection) {}
+
+  async createUser(userData: { username: string; password: string }) {
+    const [result] = await this.connection.execute(
+      "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+      [userData.username, userData.password, "user"]
+    );
+
+    return {
+      id: (result as any).insertId,
+      username: userData.username,
+      role: "user",
+    };
+  }
+
+  async findByUsername(username: string) {
+    const [rows] = await this.connection.execute(
+      "SELECT id, username, password, role FROM users WHERE username = ?",
+      [username]
+    );
+
+    const users = rows as any[];
+    return users.length > 0 ? users[0] : null;
+  }
+
+  async findById(id: number) {
+    const [rows] = await this.connection.execute(
+      "SELECT id, username, role FROM users WHERE id = ?",
+      [id]
+    );
+
+    const users = rows as any[];
+    return users.length > 0 ? users[0] : null;
+  }
+
+  async findAll() {
+    const [rows] = await this.connection.execute(
+      "SELECT id, username, role, created_at FROM users"
+    );
+    return rows;
+  }
+}

@@ -1,26 +1,51 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { createPool, Pool } from 'mysql2/promise';
+import { Injectable } from "@nestjs/common";
+import { DatabaseService } from "../database/database.service";
 
 @Injectable()
-export class DatabaseService {
-  private pool: Pool;
+export class UsersService {
+  constructor(private readonly databaseService: DatabaseService) {}
 
-  constructor(private readonly config: ConfigService) {
-    this.pool = createPool({
-      host: this.config.get<string>('DB_HOST'),
-      port: this.config.get<number>('DB_PORT', 3306),
-      user: this.config.get<string>('DB_USER'),
-      password: this.config.get<string>('DB_PASSWORD'),
-      database: this.config.get<string>('DB_NAME'),
-      ssl: this.config.get<string>('DB_SSL', 'false') === 'true' ? { rejectUnauthorized: false } : undefined,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-    });
+  async createUser(userData: { username: string; password: string }) {
+    const pool = this.databaseService.getPool();
+    const [result] = await pool.execute(
+      "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+      [userData.username, userData.password, "user"]
+    );
+
+    return {
+      id: (result as any).insertId,
+      username: userData.username,
+      role: "user",
+    };
   }
 
-  getPool() {
-    return this.pool;
+  async findByUsername(username: string) {
+    const pool = this.databaseService.getPool();
+    const [rows] = await pool.execute(
+      "SELECT id, username, password, role FROM users WHERE username = ?",
+      [username]
+    );
+
+    const users = rows as any[];
+    return users.length > 0 ? users[0] : null;
+  }
+
+  async findById(id: number) {
+    const pool = this.databaseService.getPool();
+    const [rows] = await pool.execute(
+      "SELECT id, username, role FROM users WHERE id = ?",
+      [id]
+    );
+
+    const users = rows as any[];
+    return users.length > 0 ? users[0] : null;
+  }
+
+  async findAll() {
+    const pool = this.databaseService.getPool();
+    const [rows] = await pool.execute(
+      "SELECT id, username, role, created_at FROM users"
+    );
+    return rows;
   }
 }
