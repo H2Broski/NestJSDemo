@@ -8,8 +8,8 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:3000",
-      "https://because-tonight-would-be-the-night.vercel.app/",
-      "https://*.vercel.app", // Allow all Vercel preview deployments
+      "https://because-tonight-would-be-the-night.vercel.app",
+      /https:\/\/.*\.vercel\.app$/,
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
