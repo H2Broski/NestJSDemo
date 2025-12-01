@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { DatabaseService } from "../database/database.service";
+import { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 
 interface PositionRow extends RowDataPacket {
   position_id: number;
@@ -28,22 +28,36 @@ export class PositionsService {
 
   async create(data: PositionCreateDto, userId: number) {
     const [result] = await this.pool().query<ResultSetHeader>(
-      'INSERT INTO positions (position_code, position_name, id) VALUES (?, ?, ?)',
-      [data.position_code, data.position_name, userId],
+      "INSERT INTO positions (position_code, position_name, id) VALUES (?, ?, ?)",
+      [data.position_code, data.position_name, userId]
     );
     return { position_id: result.insertId, ...data, id: userId };
   }
 
-  async getAll() {
+  async getAll(userId?: number) {
     const pool = this.pool();
-    const [dbRow] = await pool.query<any[]>('SELECT DATABASE() AS db');
-    console.log('DB in use:', dbRow[0]?.db); // should log 'defaultdb'
-    const [rows] = await pool.query<PositionRow[]>('SELECT * FROM positions ORDER BY position_id DESC');
+    const [dbRow] = await pool.query<any[]>("SELECT DATABASE() AS db");
+    console.log("DB in use:", dbRow[0]?.db); // should log 'defaultdb'
+
+    if (userId) {
+      const [rows] = await pool.query<PositionRow[]>(
+        "SELECT * FROM positions WHERE id = ? ORDER BY position_id DESC",
+        [userId]
+      );
+      return rows;
+    }
+
+    const [rows] = await pool.query<PositionRow[]>(
+      "SELECT * FROM positions ORDER BY position_id DESC"
+    );
     return rows;
   }
 
   async getOne(id: number) {
-    const [rows] = await this.pool().query<PositionRow[]>('SELECT * FROM positions WHERE position_id = ?', [id]);
+    const [rows] = await this.pool().query<PositionRow[]>(
+      "SELECT * FROM positions WHERE position_id = ?",
+      [id]
+    );
     if (!rows[0]) throw new NotFoundException(`Position ${id} not found`);
     return rows[0];
   }
@@ -51,27 +65,33 @@ export class PositionsService {
   async update(id: number, data: PositionUpdateDto, userId: number) {
     // Optional owner scoping; remove "AND id = ?" if not required by your teacher
     const [currentRows] = await this.pool().query<PositionRow[]>(
-      'SELECT * FROM positions WHERE position_id = ? AND id = ?',
-      [id, userId],
+      "SELECT * FROM positions WHERE position_id = ? AND id = ?",
+      [id, userId]
     );
     const current = currentRows[0];
-    if (!current) throw new NotFoundException(`Position ${id} not found or not owned by user`);
+    if (!current)
+      throw new NotFoundException(
+        `Position ${id} not found or not owned by user`
+      );
 
     const position_code = data.position_code ?? current.position_code;
     const position_name = data.position_name ?? current.position_name;
 
     await this.pool().query(
-      'UPDATE positions SET position_code = ?, position_name = ? WHERE position_id = ? AND id = ?',
-      [position_code, position_name, id, userId],
+      "UPDATE positions SET position_code = ?, position_name = ? WHERE position_id = ? AND id = ?",
+      [position_code, position_name, id, userId]
     );
     return this.getOne(id);
   }
 
   async remove(id: number, userId: number) {
     const [res] = await this.pool().query<ResultSetHeader>(
-      'DELETE FROM positions WHERE position_id = ? AND id = ?',
-      [id, userId],
+      "DELETE FROM positions WHERE position_id = ? AND id = ?",
+      [id, userId]
     );
-    if (res.affectedRows === 0) throw new NotFoundException(`Position ${id} not found or not owned by user`);
+    if (res.affectedRows === 0)
+      throw new NotFoundException(
+        `Position ${id} not found or not owned by user`
+      );
   }
 }
