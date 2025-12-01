@@ -188,7 +188,7 @@
   "scripts": {
     "start": "node dist/main",
     "start:dev": "nest start --watch",
-    "build": "nest build"
+    "build": "npx -y @nestjs/cli build"
   },
   "keywords": [],
   "author": "",
