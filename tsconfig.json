@@ -2,13 +2,14 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2019",
-    "lib": ["es2019"],
+    "lib": ["es2019", "esnext"],
+    "types": ["node"],
     "moduleResolution": "node",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "strict": true,
     "outDir": "dist",
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": ["src/**/*"]
 }

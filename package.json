@@ -182,7 +182,8 @@
     "xtend": "^4.0.2",
     "yn": "^3.1.1",
     "@nestjs/cli": "^11.0.10",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "@types/node": "^24.5.0"
   },
   "scripts": {
     "start": "node dist/main",
@@ -194,7 +195,6 @@
   "license": "ISC",
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
-    "@types/node": "^24.5.0",
     "@types/passport-jwt": "^4.0.1",
     "ts-node-dev": "^2.0.0"
   }
