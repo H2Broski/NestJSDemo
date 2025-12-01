@@ -41,14 +41,14 @@ export class PositionsService {
 
     if (userId) {
       const [rows] = await pool.query<PositionRow[]>(
-        "SELECT * FROM positions WHERE id = ? ORDER BY position_id DESC",
+        "SELECT * FROM positions WHERE id = ? ORDER BY position_id ASC",
         [userId]
       );
       return rows;
     }
 
     const [rows] = await pool.query<PositionRow[]>(
-      "SELECT * FROM positions ORDER BY position_id DESC"
+      "SELECT * FROM positions ORDER BY position_id ASC"
     );
     return rows;
   }
