@@ -187,7 +187,7 @@
   "scripts": {
     "start": "node dist/main",
     "start:dev": "nest start --watch",
-    "build": "node_modules/.bin/nest build"
+    "build": "tsc -p tsconfig.json"
   },
   "keywords": [],
   "author": "",
